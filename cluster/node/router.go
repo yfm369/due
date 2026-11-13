@@ -152,7 +152,7 @@ func (r *Router) Group(groups ...func(group *RouterGroup)) *RouterGroup {
 // deliver routes a message. It fetches a request object from the pool, fills in the message content
 // and writes it to the routing queue for asynchronous handling. It returns the error reported when
 // the message fails to be enqueued.
-func (r *Router) deliver(gid, nid, pid string, cid, uid int64, seq, route int32, message any) error {
+func (r *Router) deliver(gid, nid, pid string, cid, uid int64, seq, route int32, message any, parents ...context.Context) error {
 	req := r.node.reqPool.Get().(*request)
 	req.gid = gid
 	req.nid = nid
@@ -163,11 +163,7 @@ func (r *Router) deliver(gid, nid, pid string, cid, uid int64, seq, route int32,
 	req.route = route
 	req.message = message
 
-	if r.node.opts.ctxFunc != nil {
-		req.ctx = r.node.opts.ctxFunc()
-	} else {
-		req.ctx = context.Background()
-	}
+	req.ctx = r.node.messageContext(parents...)
 
 	if err := r.queue.Write(req); err != nil {
 		req.release()

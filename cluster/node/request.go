@@ -261,6 +261,11 @@ func (r *request) Context() context.Context {
 	return r.ctx
 }
 
+// SetContext replaces the context used by local dispatch and outbound calls.
+func (r *request) SetContext(ctx context.Context) {
+	r.ctx = ctx
+}
+
 // SetValue sets a value on the context.
 func (r *request) SetValue(key, val any) {
 	r.ctx = context.WithValue(r.ctx, key, val)
@@ -460,7 +465,7 @@ func (r *request) Reply(message *cluster.Message) error {
 		})
 	case r.pid != "": // From an actor
 		if actor, ok := r.node.scheduler.doLoad(r.pid); ok {
-			return actor.Deliver(r.uid, message)
+			return actor.deliver(r.ctx, r.uid, message)
 		}
 
 		return nil

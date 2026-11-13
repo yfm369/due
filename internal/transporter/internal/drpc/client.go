@@ -154,7 +154,7 @@ func (c *Client) Push(ctx context.Context, buf buffer.Buffer, idx ...int64) erro
 		buf.Release()
 		return err
 	} else {
-		return conn.push(buf)
+		return conn.pushContext(ctx, buf)
 	}
 }
 

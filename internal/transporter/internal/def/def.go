@@ -23,7 +23,9 @@ const MaxFrameSize = 16 << 20 // 16MB
 const MinFrameSize = SizeBytes + HeaderBytes + RouteBytes + SeqBytes
 
 const (
-	DataBit       uint8 = 0 << 7 // Data flag
-	HeartbeatBit  uint8 = 1 << 7 // Heartbeat flag
-	DisconnectBit uint8 = 1 << 6 // Disconnect flag
+	DataBit                  uint8 = 0 << 7 // Data flag
+	HeartbeatBit             uint8 = 1 << 7 // Heartbeat flag
+	DisconnectBit            uint8 = 1 << 6 // Disconnect flag
+	PropagationCapabilityBit uint8 = 1 << 5 // Handshake propagation capability, ignored by legacy peers
+	PropagationMetadataBit   uint8 = 1 << 4 // Data frame contains a bounded metadata prefix
 )

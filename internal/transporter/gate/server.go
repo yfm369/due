@@ -30,24 +30,28 @@ func NewServer(provider Provider, opts *ServerOptions) (*Server, error) {
 }
 
 func (s *Server) init() {
-	s.RegisterHandler(route.Bind, s.bind)
-	s.RegisterHandler(route.Unbind, s.unbind)
-	s.RegisterHandler(route.GetIP, s.getIP)
-	s.RegisterHandler(route.Stat, s.stat)
-	s.RegisterHandler(route.IsOnline, s.isOnline)
-	s.RegisterHandler(route.Disconnect, s.disconnect)
-	s.RegisterHandler(route.Push, s.push)
-	s.RegisterHandler(route.Multicast, s.multicast)
-	s.RegisterHandler(route.Broadcast, s.broadcast)
-	s.RegisterHandler(route.Publish, s.publish)
-	s.RegisterHandler(route.Subscribe, s.subscribe)
-	s.RegisterHandler(route.Unsubscribe, s.unsubscribe)
+	s.RegisterContextHandler(route.Bind, s.bindContext)
+	s.RegisterContextHandler(route.Unbind, s.unbindContext)
+	s.RegisterContextHandler(route.GetIP, s.getIPContext)
+	s.RegisterContextHandler(route.Stat, s.statContext)
+	s.RegisterContextHandler(route.IsOnline, s.isOnlineContext)
+	s.RegisterContextHandler(route.Disconnect, s.disconnectContext)
+	s.RegisterContextHandler(route.Push, s.pushContext)
+	s.RegisterContextHandler(route.Multicast, s.multicastContext)
+	s.RegisterContextHandler(route.Broadcast, s.broadcastContext)
+	s.RegisterContextHandler(route.Publish, s.publishContext)
+	s.RegisterContextHandler(route.Subscribe, s.subscribeContext)
+	s.RegisterContextHandler(route.Unsubscribe, s.unsubscribeContext)
 	s.RegisterHandler(route.GetState, s.getState)
 	s.RegisterHandler(route.SetState, s.setState)
 }
 
 // bind binds the user to the connection.
 func (s *Server) bind(conn *drpc.ServerConn, seq uint64, req *buffer.Bytes) error {
+	return s.bindContext(context.Background(), conn, seq, req)
+}
+
+func (s *Server) bindContext(ctx context.Context, conn *drpc.ServerConn, seq uint64, req *buffer.Bytes) error {
 	cid, uid, err := protocol.DecodeBindReq(req)
 
 	req.Release()
@@ -56,7 +60,7 @@ func (s *Server) bind(conn *drpc.ServerConn, seq uint64, req *buffer.Bytes) erro
 		return err
 	}
 
-	err = s.provider.Bind(context.Background(), cid, uid)
+	err = s.provider.Bind(ctx, cid, uid)
 
 	if seq == 0 {
 		return err
@@ -67,6 +71,10 @@ func (s *Server) bind(conn *drpc.ServerConn, seq uint64, req *buffer.Bytes) erro
 
 // unbind unbinds the user from its connection.
 func (s *Server) unbind(conn *drpc.ServerConn, seq uint64, req *buffer.Bytes) error {
+	return s.unbindContext(context.Background(), conn, seq, req)
+}
+
+func (s *Server) unbindContext(ctx context.Context, conn *drpc.ServerConn, seq uint64, req *buffer.Bytes) error {
 	uid, err := protocol.DecodeUnbindReq(req)
 
 	req.Release()
@@ -75,7 +83,7 @@ func (s *Server) unbind(conn *drpc.ServerConn, seq uint64, req *buffer.Bytes) er
 		return err
 	}
 
-	err = s.provider.Unbind(context.Background(), uid)
+	err = s.provider.Unbind(ctx, uid)
 
 	if seq == 0 {
 		return err
@@ -86,6 +94,10 @@ func (s *Server) unbind(conn *drpc.ServerConn, seq uint64, req *buffer.Bytes) er
 
 // getIP returns the client IP address.
 func (s *Server) getIP(conn *drpc.ServerConn, seq uint64, req *buffer.Bytes) error {
+	return s.getIPContext(context.Background(), conn, seq, req)
+}
+
+func (s *Server) getIPContext(ctx context.Context, conn *drpc.ServerConn, seq uint64, req *buffer.Bytes) error {
 	kind, target, err := protocol.DecodeGetIPReq(req)
 
 	req.Release()
@@ -94,7 +106,7 @@ func (s *Server) getIP(conn *drpc.ServerConn, seq uint64, req *buffer.Bytes) err
 		return err
 	}
 
-	ip, err := s.provider.GetIP(context.Background(), kind, target)
+	ip, err := s.provider.GetIP(ctx, kind, target)
 
 	if seq == 0 {
 		return err
@@ -105,6 +117,10 @@ func (s *Server) getIP(conn *drpc.ServerConn, seq uint64, req *buffer.Bytes) err
 
 // stat returns the total number of online sessions.
 func (s *Server) stat(conn *drpc.ServerConn, seq uint64, req *buffer.Bytes) error {
+	return s.statContext(context.Background(), conn, seq, req)
+}
+
+func (s *Server) statContext(ctx context.Context, conn *drpc.ServerConn, seq uint64, req *buffer.Bytes) error {
 	kind, err := protocol.DecodeStatReq(req)
 
 	req.Release()
@@ -113,7 +129,7 @@ func (s *Server) stat(conn *drpc.ServerConn, seq uint64, req *buffer.Bytes) erro
 		return err
 	}
 
-	total, err := s.provider.Stat(context.Background(), kind)
+	total, err := s.provider.Stat(ctx, kind)
 
 	if seq == 0 {
 		return err
@@ -124,6 +140,10 @@ func (s *Server) stat(conn *drpc.ServerConn, seq uint64, req *buffer.Bytes) erro
 
 // isOnline reports whether the target session is online.
 func (s *Server) isOnline(conn *drpc.ServerConn, seq uint64, req *buffer.Bytes) error {
+	return s.isOnlineContext(context.Background(), conn, seq, req)
+}
+
+func (s *Server) isOnlineContext(ctx context.Context, conn *drpc.ServerConn, seq uint64, req *buffer.Bytes) error {
 	kind, target, err := protocol.DecodeIsOnlineReq(req)
 
 	req.Release()
@@ -132,7 +152,7 @@ func (s *Server) isOnline(conn *drpc.ServerConn, seq uint64, req *buffer.Bytes) 
 		return err
 	}
 
-	isOnline, err := s.provider.IsOnline(context.Background(), kind, target)
+	isOnline, err := s.provider.IsOnline(ctx, kind, target)
 
 	if seq == 0 {
 		return err
@@ -143,6 +163,10 @@ func (s *Server) isOnline(conn *drpc.ServerConn, seq uint64, req *buffer.Bytes) 
 
 // disconnect disconnects the target session.
 func (s *Server) disconnect(conn *drpc.ServerConn, seq uint64, req *buffer.Bytes) error {
+	return s.disconnectContext(context.Background(), conn, seq, req)
+}
+
+func (s *Server) disconnectContext(ctx context.Context, conn *drpc.ServerConn, seq uint64, req *buffer.Bytes) error {
 	kind, target, force, err := protocol.DecodeDisconnectReq(req)
 
 	req.Release()
@@ -151,7 +175,7 @@ func (s *Server) disconnect(conn *drpc.ServerConn, seq uint64, req *buffer.Bytes
 		return err
 	}
 
-	err = s.provider.Disconnect(context.Background(), kind, target, force)
+	err = s.provider.Disconnect(ctx, kind, target, force)
 
 	if seq == 0 {
 		return err
@@ -164,13 +188,17 @@ func (s *Server) disconnect(conn *drpc.ServerConn, seq uint64, req *buffer.Bytes
 //
 // Note that buf is not released here; it must be released when the message is sent.
 func (s *Server) push(conn *drpc.ServerConn, seq uint64, req *buffer.Bytes) error {
+	return s.pushContext(context.Background(), conn, seq, req)
+}
+
+func (s *Server) pushContext(ctx context.Context, conn *drpc.ServerConn, seq uint64, req *buffer.Bytes) error {
 	kind, target, disconnect, buf, err := protocol.DecodePushReq(req)
 	if err != nil {
 		req.Release()
 		return err
 	}
 
-	err = s.provider.Push(context.Background(), kind, target, disconnect, buf)
+	err = s.provider.Push(ctx, kind, target, disconnect, buf)
 
 	if seq == 0 {
 		return err
@@ -181,13 +209,17 @@ func (s *Server) push(conn *drpc.ServerConn, seq uint64, req *buffer.Bytes) erro
 
 // multicast pushes a message to multiple targets.
 func (s *Server) multicast(conn *drpc.ServerConn, seq uint64, req *buffer.Bytes) error {
+	return s.multicastContext(context.Background(), conn, seq, req)
+}
+
+func (s *Server) multicastContext(ctx context.Context, conn *drpc.ServerConn, seq uint64, req *buffer.Bytes) error {
 	kind, targets, disconnect, buf, err := protocol.DecodeMulticastReq(req)
 	if err != nil {
 		req.Release()
 		return err
 	}
 
-	total, err := s.provider.Multicast(context.Background(), kind, targets, disconnect, buf)
+	total, err := s.provider.Multicast(ctx, kind, targets, disconnect, buf)
 
 	if seq == 0 {
 		return err
@@ -198,13 +230,17 @@ func (s *Server) multicast(conn *drpc.ServerConn, seq uint64, req *buffer.Bytes)
 
 // broadcast pushes a message to all sessions.
 func (s *Server) broadcast(conn *drpc.ServerConn, seq uint64, req *buffer.Bytes) error {
+	return s.broadcastContext(context.Background(), conn, seq, req)
+}
+
+func (s *Server) broadcastContext(ctx context.Context, conn *drpc.ServerConn, seq uint64, req *buffer.Bytes) error {
 	kind, disconnect, buf, err := protocol.DecodeBroadcastReq(req)
 	if err != nil {
 		req.Release()
 		return err
 	}
 
-	total, err := s.provider.Broadcast(context.Background(), kind, disconnect, buf)
+	total, err := s.provider.Broadcast(ctx, kind, disconnect, buf)
 
 	if seq == 0 {
 		return err
@@ -215,13 +251,17 @@ func (s *Server) broadcast(conn *drpc.ServerConn, seq uint64, req *buffer.Bytes)
 
 // publish publishes a channel message.
 func (s *Server) publish(conn *drpc.ServerConn, seq uint64, req *buffer.Bytes) error {
+	return s.publishContext(context.Background(), conn, seq, req)
+}
+
+func (s *Server) publishContext(ctx context.Context, conn *drpc.ServerConn, seq uint64, req *buffer.Bytes) error {
 	channel, disconnect, buf, err := protocol.DecodePublishReq(req)
 	if err != nil {
 		req.Release()
 		return err
 	}
 
-	total, err := s.provider.Publish(context.Background(), channel, disconnect, buf)
+	total, err := s.provider.Publish(ctx, channel, disconnect, buf)
 
 	if seq == 0 {
 		return err
@@ -232,6 +272,10 @@ func (s *Server) publish(conn *drpc.ServerConn, seq uint64, req *buffer.Bytes) e
 
 // subscribe subscribes the targets to a channel.
 func (s *Server) subscribe(conn *drpc.ServerConn, seq uint64, req *buffer.Bytes) error {
+	return s.subscribeContext(context.Background(), conn, seq, req)
+}
+
+func (s *Server) subscribeContext(ctx context.Context, conn *drpc.ServerConn, seq uint64, req *buffer.Bytes) error {
 	kind, targets, channel, err := protocol.DecodeSubscribeReq(req)
 
 	req.Release()
@@ -240,7 +284,7 @@ func (s *Server) subscribe(conn *drpc.ServerConn, seq uint64, req *buffer.Bytes)
 		return err
 	}
 
-	err = s.provider.Subscribe(context.Background(), kind, targets, channel)
+	err = s.provider.Subscribe(ctx, kind, targets, channel)
 
 	if seq == 0 {
 		return err
@@ -251,6 +295,10 @@ func (s *Server) subscribe(conn *drpc.ServerConn, seq uint64, req *buffer.Bytes)
 
 // unsubscribe unsubscribes the targets from a channel.
 func (s *Server) unsubscribe(conn *drpc.ServerConn, seq uint64, req *buffer.Bytes) error {
+	return s.unsubscribeContext(context.Background(), conn, seq, req)
+}
+
+func (s *Server) unsubscribeContext(ctx context.Context, conn *drpc.ServerConn, seq uint64, req *buffer.Bytes) error {
 	kind, targets, channel, err := protocol.DecodeUnsubscribeReq(req)
 
 	req.Release()
@@ -259,7 +307,7 @@ func (s *Server) unsubscribe(conn *drpc.ServerConn, seq uint64, req *buffer.Byte
 		return err
 	}
 
-	err = s.provider.Unsubscribe(context.Background(), kind, targets, channel)
+	err = s.provider.Unsubscribe(ctx, kind, targets, channel)
 
 	if seq == 0 {
 		return err

@@ -1,6 +1,7 @@
 package drpc
 
 import (
+	"context"
 	"time"
 
 	"github.com/dobyte/due/v2/core/buffer"
@@ -27,3 +28,6 @@ type closedQueue struct {
 }
 
 type RouteHandler func(conn *ServerConn, seq uint64, buf *buffer.Bytes) error
+
+// ContextRouteHandler receives the immutable propagation context of one frame.
+type ContextRouteHandler func(ctx context.Context, conn *ServerConn, seq uint64, buf *buffer.Bytes) error

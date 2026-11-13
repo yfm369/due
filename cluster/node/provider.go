@@ -21,7 +21,7 @@ func (p *provider) Trigger(ctx context.Context, gid string, cid, uid int64, even
 	if p.node.isShut() {
 		return errors.ErrNodeShutdown
 	} else {
-		return p.node.trigger.trigger(event, gid, cid, uid)
+		return p.node.trigger.trigger(event, gid, cid, uid, ctx)
 	}
 }
 
@@ -64,7 +64,7 @@ func (p *provider) Deliver(ctx context.Context, gid, nid string, cid, uid int64,
 		}
 	}
 
-	return p.node.router.deliver(gid, nid, "", cid, uid, seq, route, message)
+	return p.node.router.deliver(gid, nid, "", cid, uid, seq, route, message, ctx)
 }
 
 // GetState returns the current node state. The error is always nil.

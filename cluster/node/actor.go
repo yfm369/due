@@ -280,6 +280,11 @@ func (a *Actor) Next(ctx Context) error {
 //
 // It reports an error when packing the message or delivering it fails.
 func (a *Actor) Deliver(uid int64, message *cluster.Message) error {
+	return a.deliver(context.Background(), uid, message)
+}
+
+// deliver retains the current request's telemetry when replying to a local actor.
+func (a *Actor) deliver(ctx context.Context, uid int64, message *cluster.Message) error {
 	buf, err := a.scheduler.node.proxy.PackBuffer(message.Data)
 	if err != nil {
 		return err
@@ -293,11 +298,7 @@ func (a *Actor) Deliver(uid int64, message *cluster.Message) error {
 	req.route = message.Route
 	req.message = buf
 
-	if a.scheduler.node.opts.ctxFunc != nil {
-		req.ctx = a.scheduler.node.opts.ctxFunc()
-	} else {
-		req.ctx = context.Background()
-	}
+	req.ctx = a.scheduler.node.messageContext(ctx)
 
 	if err := a.Next(req); err != nil {
 		req.release()

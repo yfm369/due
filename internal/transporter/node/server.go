@@ -32,14 +32,18 @@ func NewServer(provider Provider, opts *ServerOptions) (*Server, error) {
 }
 
 func (s *Server) init() {
-	s.RegisterHandler(route.Trigger, s.trigger)
-	s.RegisterHandler(route.Deliver, s.deliver)
+	s.RegisterContextHandler(route.Trigger, s.triggerContext)
+	s.RegisterContextHandler(route.Deliver, s.deliverContext)
 	s.RegisterHandler(route.GetState, s.getState)
 	s.RegisterHandler(route.SetState, s.setState)
 }
 
 // trigger triggers an event.
 func (s *Server) trigger(conn *drpc.ServerConn, seq uint64, req *buffer.Bytes) error {
+	return s.triggerContext(context.Background(), conn, seq, req)
+}
+
+func (s *Server) triggerContext(ctx context.Context, conn *drpc.ServerConn, seq uint64, req *buffer.Bytes) error {
 	event, cid, uid, err := protocol.DecodeTriggerReq(req)
 
 	req.Release()
@@ -54,7 +58,7 @@ func (s *Server) trigger(conn *drpc.ServerConn, seq uint64, req *buffer.Bytes) e
 		return errors.ErrIllegalRequest
 	}
 
-	err = s.provider.Trigger(context.Background(), inst, cid, uid, event)
+	err = s.provider.Trigger(ctx, inst, cid, uid, event)
 
 	if seq == 0 {
 		if errors.Is(err, errors.ErrNotFoundSession) {
@@ -69,6 +73,10 @@ func (s *Server) trigger(conn *drpc.ServerConn, seq uint64, req *buffer.Bytes) e
 
 // deliver delivers a message.
 func (s *Server) deliver(conn *drpc.ServerConn, seq uint64, req *buffer.Bytes) error {
+	return s.deliverContext(context.Background(), conn, seq, req)
+}
+
+func (s *Server) deliverContext(ctx context.Context, conn *drpc.ServerConn, seq uint64, req *buffer.Bytes) error {
 	var (
 		gid string
 		nid string
@@ -90,7 +98,7 @@ func (s *Server) deliver(conn *drpc.ServerConn, seq uint64, req *buffer.Bytes) e
 		return err
 	}
 
-	err = s.provider.Deliver(context.Background(), gid, nid, cid, uid, buf)
+	err = s.provider.Deliver(ctx, gid, nid, cid, uid, buf)
 
 	if seq == 0 {
 		return err

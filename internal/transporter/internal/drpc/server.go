@@ -20,20 +20,21 @@ import (
 const scheme = "drpc"
 
 type Server struct {
-	opts       *ServerOptions     // Options
-	listenAddr string             // Listen address
-	exposeAddr string             // Exposed address
-	endpoint   *endpoint.Endpoint // Exposed endpoint
-	mu         sync.Mutex         // Lock
-	ctx        context.Context    // Context
-	cancel     context.CancelFunc // Cancel function
-	listener   *net.TCPListener   // Listener
-	handlers   [256]RouteHandler  // Route handlers
-	conns      sync.Map           // Connection map
-	ticker     *time.Ticker       // Heartbeat ticker
-	queues     sync.Map           // Closed queues
-	connSeq    atomic.Uint64      // Connection sequence
-	workerWg   sync.WaitGroup     // Worker goroutine wait group
+	opts            *ServerOptions           // Options
+	listenAddr      string                   // Listen address
+	exposeAddr      string                   // Exposed address
+	endpoint        *endpoint.Endpoint       // Exposed endpoint
+	mu              sync.Mutex               // Lock
+	ctx             context.Context          // Context
+	cancel          context.CancelFunc       // Cancel function
+	listener        *net.TCPListener         // Listener
+	handlers        [256]RouteHandler        // Route handlers
+	contextHandlers [256]ContextRouteHandler // Context-aware route handlers
+	conns           sync.Map                 // Connection map
+	ticker          *time.Ticker             // Heartbeat ticker
+	queues          sync.Map                 // Closed queues
+	connSeq         atomic.Uint64            // Connection sequence
+	workerWg        sync.WaitGroup           // Worker goroutine wait group
 }
 
 // NewServer creates a server with the given options.
@@ -119,12 +120,27 @@ func (s *Server) RegisterHandler(route uint8, handler RouteHandler) {
 		return
 	}
 
-	if s.handlers[route] != nil {
+	if s.handlers[route] != nil || s.contextHandlers[route] != nil {
 		log.Warnf("handler already registered for route: %d", route)
 		return
 	}
 
 	s.handlers[route] = handler
+}
+
+// RegisterContextHandler registers a handler that receives per-message context.
+func (s *Server) RegisterContextHandler(route uint8, handler ContextRouteHandler) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.listener != nil {
+		log.Warnf("server already started, cannot register handler: %d", route)
+		return
+	}
+	if s.handlers[route] != nil || s.contextHandlers[route] != nil {
+		log.Warnf("handler already registered for route: %d", route)
+		return
+	}
+	s.contextHandlers[route] = handler
 }
 
 // serve accepts connections.
@@ -221,6 +237,19 @@ func (s *Server) check() {
 
 // handleMessage dispatches a message to the handler registered for its route.
 func (s *Server) handleMessage(conn *ServerConn, rt uint8, seq uint64, buf *buffer.Bytes) error {
+	return s.handleMessageContext(context.Background(), conn, rt, seq, buf)
+}
+
+func (s *Server) handleMessageContext(ctx context.Context, conn *ServerConn, rt uint8, seq uint64, buf *buffer.Bytes) error {
+	if handler := s.contextHandlers[rt]; handler != nil {
+		switch rt {
+		case route.Push, route.Multicast, route.Broadcast, route.Publish, route.Deliver, route.Trigger:
+			return handler(ctx, conn, seq, buf)
+		default:
+			taskpool.Add(func() { _ = handler(ctx, conn, seq, buf) })
+			return nil
+		}
+	}
 	if handler := s.handlers[rt]; handler == nil {
 		buf.Release()
 

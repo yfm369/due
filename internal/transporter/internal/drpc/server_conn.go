@@ -13,6 +13,7 @@ import (
 	"github.com/dobyte/due/v2/core/queue"
 	"github.com/dobyte/due/v2/errors"
 	"github.com/dobyte/due/v2/internal/transporter/internal/codes"
+	"github.com/dobyte/due/v2/internal/transporter/internal/def"
 	"github.com/dobyte/due/v2/internal/transporter/internal/protocol"
 	"github.com/dobyte/due/v2/internal/transporter/internal/route"
 	"github.com/dobyte/due/v2/log"
@@ -37,6 +38,7 @@ type ServerConn struct {
 	kind              cluster.Kind                // Instance kind
 	inst              string                      // Instance ID
 	epoch             uint64                      // Connection epoch
+	propagation       bool                        // Written and read only by the connection read goroutine
 }
 
 func newServerConn(svr *Server, conn *net.TCPConn) *ServerConn {
@@ -131,11 +133,17 @@ func (c *ServerConn) read(conn *net.TCPConn) {
 				}
 
 				if rt == route.Handshake {
+					if reader.header&def.PropagationMetadataBit != 0 {
+						buf.Release()
+						taskpool.Add(func() { c.forceClose() })
+						return
+					}
 					if state == connAlived {
 						buf.Release()
 						continue
 					}
 
+					c.propagation = reader.header&def.PropagationCapabilityBit != 0
 					if err := c.doHandshake(seq, buf); err != nil {
 						log.Warnf("handle handshake error: %v", err)
 						taskpool.Add(func() { c.forceClose() })
@@ -147,7 +155,12 @@ func (c *ServerConn) read(conn *net.TCPConn) {
 						continue
 					}
 
-					c.svr.handleMessage(c, rt, seq, buf)
+					if reader.header&def.PropagationMetadataBit != 0 && !c.propagation {
+						buf.Release()
+						taskpool.Add(func() { c.forceClose() })
+						return
+					}
+					c.svr.handleMessageContext(reader.context(), c, rt, seq, buf)
 				}
 			}
 		}
@@ -364,6 +377,9 @@ func (c *ServerConn) doHandshake(seq uint64, buf buffer.Buffer) error {
 	}
 
 	buf = protocol.EncodeHandshakeRes(seq, codes.OK)
+	if c.propagation {
+		buf.Bytes()[def.SizeBytes] |= def.PropagationCapabilityBit
+	}
 
 	c.rw.Lock()
 	defer c.rw.Unlock()

@@ -62,6 +62,11 @@ type Context interface {
 	Proxy() *Proxy
 	// Context returns the underlying standard context.
 	Context() context.Context
+	// SetContext replaces the underlying standard context. Derive ctx from
+	// Context() to retain request values and cancellation. Call it only while
+	// owning the current dispatch stage, before handing off with Next or Task.
+	// ctx must not be nil.
+	SetContext(ctx context.Context)
 	// SetValue sets a value on the context.
 	SetValue(key, val any)
 	// GetValue returns the value associated with key, or nil when it does not exist.

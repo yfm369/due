@@ -31,18 +31,14 @@ func newTrigger(node *Node) *Trigger {
 // trigger triggers an event. It fetches an event object from the pool, fills it in and writes it to
 // the event queue for asynchronous handling. It returns the error reported when the event fails to
 // be enqueued.
-func (t *Trigger) trigger(kind cluster.Event, gid string, cid, uid int64) error {
+func (t *Trigger) trigger(kind cluster.Event, gid string, cid, uid int64, parents ...context.Context) error {
 	evt := t.node.evtPool.Get().(*event)
 	evt.event = kind
 	evt.gid = gid
 	evt.cid = cid
 	evt.uid = uid
 
-	if t.node.opts.ctxFunc != nil {
-		evt.ctx = t.node.opts.ctxFunc()
-	} else {
-		evt.ctx = context.Background()
-	}
+	evt.ctx = t.node.messageContext(parents...)
 
 	if err := t.queue.Write(evt); err != nil {
 		evt.release()

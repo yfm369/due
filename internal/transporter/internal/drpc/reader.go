@@ -9,10 +9,13 @@ import (
 	"github.com/dobyte/due/v2/core/buffer"
 	"github.com/dobyte/due/v2/errors"
 	"github.com/dobyte/due/v2/internal/transporter/internal/def"
+	"go.opentelemetry.io/otel/propagation"
 )
 
 type reader struct {
-	reader *bufio.Reader
+	reader  *bufio.Reader
+	header  uint8
+	carrier propagation.MapCarrier
 }
 
 func newReader(conn *net.TCPConn) *reader {
@@ -21,6 +24,7 @@ func newReader(conn *net.TCPConn) *reader {
 
 // read reads a message into a buffer.
 func (r *reader) read() (bool, uint8, uint64, *buffer.Bytes, error) {
+	r.header, r.carrier = 0, nil
 	// Parse the header with a zero-copy Peek, avoiding two io.ReadFull calls per frame.
 	header, err := r.reader.Peek(def.SizeBytes + def.HeaderBytes)
 	if err != nil {
@@ -28,9 +32,10 @@ func (r *reader) read() (bool, uint8, uint64, *buffer.Bytes, error) {
 	}
 
 	size := binary.BigEndian.Uint32(header[:def.SizeBytes])
+	r.header = header[def.SizeBytes]
 
 	if header[def.SizeBytes]&def.HeartbeatBit == def.HeartbeatBit {
-		if size != def.HeaderBytes {
+		if size != def.HeaderBytes || r.header&def.PropagationMetadataBit != 0 {
 			return false, 0, 0, nil, errors.ErrInvalidMessage
 		}
 
@@ -63,6 +68,13 @@ func (r *reader) read() (bool, uint8, uint64, *buffer.Bytes, error) {
 	)
 
 	buf.Slide(def.RouteBytes + def.SeqBytes)
+	if r.header&def.PropagationMetadataBit != 0 {
+		r.carrier, err = readPropagation(buf)
+		if err != nil {
+			buf.Release()
+			return false, 0, 0, nil, err
+		}
+	}
 
 	return false, route, seq, buf, nil
 }

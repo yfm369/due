@@ -628,6 +628,10 @@ func (s *Syncer) parseFileMark() error {
 	entries, err := os.ReadDir(s.fileDir)
 	if err != nil {
 		if os.IsNotExist(err) {
+			// Windows can report a file used as a directory as not found.
+			if info, statErr := os.Stat(filepath.Clean(s.fileDir)); statErr == nil && !info.IsDir() {
+				return fmt.Errorf("log directory %q is not a directory", s.fileDir)
+			}
 			return nil
 		}
 		return err

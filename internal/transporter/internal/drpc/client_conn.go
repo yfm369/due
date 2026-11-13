@@ -12,6 +12,7 @@ import (
 	"github.com/dobyte/due/v2/core/queue"
 	"github.com/dobyte/due/v2/errors"
 	"github.com/dobyte/due/v2/internal/transporter/internal/codes"
+	"github.com/dobyte/due/v2/internal/transporter/internal/def"
 	"github.com/dobyte/due/v2/internal/transporter/internal/protocol"
 	"github.com/dobyte/due/v2/internal/transporter/internal/route"
 	"github.com/dobyte/due/v2/log"
@@ -28,6 +29,7 @@ type session struct {
 	dueBuffers    []buffer.Buffer // Message buffers pending write (owned by the write goroutine)
 	netBuffers    net.Buffers     // Byte slices pending write (owned by the write goroutine)
 	writeDeadline time.Time       // Write deadline (owned by the write goroutine)
+	propagation   bool            // Negotiated independently for each connection session
 }
 
 type ClientConn struct {
@@ -181,6 +183,7 @@ func (c *ClientConn) handshake(s *session) error {
 	const seq = uint64(1)
 
 	req := protocol.EncodeHandshakeReq(seq, c.cli.opts.Kind, c.cli.opts.ID, c.epoch)
+	req.Bytes()[def.SizeBytes] |= def.PropagationCapabilityBit
 	_, err := s.conn.Write(req.Bytes())
 	req.Release()
 	if err != nil {
@@ -198,7 +201,7 @@ func (c *ClientConn) handshake(s *session) error {
 
 	defer res.Release()
 
-	if rt != route.Handshake || rseq != seq {
+	if rt != route.Handshake || rseq != seq || s.reader.header&def.PropagationMetadataBit != 0 {
 		return errors.ErrInvalidMessage
 	}
 
@@ -210,6 +213,7 @@ func (c *ClientConn) handshake(s *session) error {
 	if err = codes.CodeToError(code); err != nil {
 		return err
 	}
+	s.propagation = s.reader.header&def.PropagationCapabilityBit != 0
 
 	return nil
 }
@@ -253,13 +257,22 @@ func (c *ClientConn) push(buf buffer.Buffer) error {
 	return nil
 }
 
+func (c *ClientConn) pushContext(ctx context.Context, frame buffer.Buffer) error {
+	wrapped, err := snapshotPropagation(ctx, frame)
+	if err != nil {
+		frame.Release()
+		return err
+	}
+	return c.push(wrapped)
+}
+
 // call sends a request and waits for its response.
 func (c *ClientConn) call(ctx context.Context, seq uint64, buf *buffer.NocopyBuffer) (buffer.Buffer, error) {
 	call := make(chan *buffer.Bytes, 1)
 
 	c.pending.store(seq, call)
 
-	if err := c.push(buf); err != nil {
+	if err := c.pushContext(ctx, buf); err != nil {
 		c.pending.delete(seq)
 		return nil, err
 	}
@@ -397,10 +410,7 @@ OVER:
 	s.netBuffers = s.netBuffers[:0]
 
 	for _, buf := range s.dueBuffers {
-		buf.VisitBytes(func(bytes []byte) bool {
-			s.netBuffers = append(s.netBuffers, bytes)
-			return true
-		})
+		s.netBuffers = appendPropagation(s.netBuffers, buf, s.propagation)
 	}
 
 	if len(s.netBuffers) > 0 {

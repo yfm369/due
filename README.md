@@ -57,6 +57,7 @@ Its module design draws on the modular design philosophy of [kratos](https://git
 * Tooling: Provides the [due-cli](https://github.com/dobyte/due-cli) scaffolding toolbox to quickly build cluster projects.
 * Cache: Multiple commonly used caching solutions such as redis and memcache.
 * Actor: Provides a complete actor model solution.
+* Tracing: Automatically propagates configured OpenTelemetry context across built-in cluster communication. See [cluster tracing](docs/tracing.md).
 * Distributed lock: Multiple distributed lock solutions such as redis and memcache.
 * Network: Servers and clients supporting the four protocols tcp, kcp, ws, and quic, with unified heartbeat, authorization, graceful shutdown, and connection management capabilities.
 

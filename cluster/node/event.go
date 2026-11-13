@@ -160,6 +160,11 @@ func (e *event) Context() context.Context {
 	return e.ctx
 }
 
+// SetContext replaces the context used by local dispatch and outbound calls.
+func (e *event) SetContext(ctx context.Context) {
+	e.ctx = ctx
+}
+
 // SetValue sets a value on the context.
 func (e *event) SetValue(key, val any) {
 	e.ctx = context.WithValue(e.ctx, key, val)
