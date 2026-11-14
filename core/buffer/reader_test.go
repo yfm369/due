@@ -38,7 +38,7 @@ func TestReader(t *testing.T) {
 	v9, _ := reader.ReadUint64(binary.BigEndian)
 	v10, _ := reader.ReadFloat32(binary.BigEndian)
 	v11, _ := reader.ReadFloat64(binary.BigEndian)
-	v12, _ := reader.ReadRune(binary.BigEndian)
+	v12, _ := reader.ReadRune32(binary.BigEndian)
 	v13, _ := reader.ReadByte()
 	v14, _ := reader.ReadString(11)
 
@@ -78,7 +78,7 @@ func BenchmarkReader(b *testing.B) {
 		reader.ReadUint64(binary.BigEndian)
 		reader.ReadFloat32(binary.BigEndian)
 		reader.ReadFloat64(binary.BigEndian)
-		reader.ReadRune(binary.BigEndian)
+		reader.ReadRune32(binary.BigEndian)
 		reader.ReadByte()
 		reader.ReadString(11)
 		reader.Reset()

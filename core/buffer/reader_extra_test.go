@@ -235,7 +235,7 @@ func TestReader_ReadUnexpectedEOF(t *testing.T) {
 		{name: "ReadFloat32s", fn: func(r *buffer.Reader) error { _, err := r.ReadFloat32s(binary.BigEndian, 1); return err }},
 		{name: "ReadFloat64", fn: func(r *buffer.Reader) error { _, err := r.ReadFloat64(binary.BigEndian); return err }},
 		{name: "ReadFloat64s", fn: func(r *buffer.Reader) error { _, err := r.ReadFloat64s(binary.BigEndian, 1); return err }},
-		{name: "ReadRune", fn: func(r *buffer.Reader) error { _, err := r.ReadRune(binary.BigEndian); return err }},
+		{name: "ReadRune32", fn: func(r *buffer.Reader) error { _, err := r.ReadRune32(binary.BigEndian); return err }},
 		{name: "ReadRunes", fn: func(r *buffer.Reader) error { _, err := r.ReadRunes(binary.BigEndian, 1); return err }},
 		{name: "ReadByte", fn: func(r *buffer.Reader) error { _, err := r.ReadByte(); return err }},
 		{name: "ReadBytes", fn: func(r *buffer.Reader) error { _, err := r.ReadBytes(1); return err }},

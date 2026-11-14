@@ -98,15 +98,15 @@ and session downgrade. Run the root module tests and applicable race checks:
 ```sh
 go test ./...
 go test -race ./cluster/node ./internal/transporter/...
-go vet ./cluster/node ./internal/transporter/... ./log/file
-go vet -stdmethods=false ./...
+go vet ./...
 go build ./...
 ```
 
-The full-root vet command excludes the standard-method-signature analyzer:
-upstream `core/buffer.Reader.ReadRune(binary.ByteOrder)` intentionally uses a
-binary-reader API rather than `io.RuneReader`, which triggers that analyzer.
-The changed packages also pass vet with its default analyzers enabled.
+All default vet analyzers remain enabled. The fixed-width binary reader method
+previously named `ReadRune(order)` is now `ReadRune32(order)`, avoiding a collision
+with the standard `ReadRune` method signature. Consumers using that older name
+must update their calls; the byte order, four-byte encoding and EOF behavior are
+unchanged.
 
 The application migration also tests an actual WebSocket gateway, two game
 nodes and a room actor with no business-payload tracing fields set.

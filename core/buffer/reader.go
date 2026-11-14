@@ -355,8 +355,8 @@ func (r *Reader) ReadFloat64s(order binary.ByteOrder, n int) ([]float64, error) 
 	return values, nil
 }
 
-// ReadRune reads a rune value using order.
-func (r *Reader) ReadRune(order binary.ByteOrder) (rune, error) {
+// ReadRune32 reads a fixed-width signed 32-bit rune value using order.
+func (r *Reader) ReadRune32(order binary.ByteOrder) (rune, error) {
 	return r.ReadInt32(order)
 }
 
